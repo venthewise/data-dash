@@ -1,0 +1,24 @@
+data-dash
+Copyright (c) 2026 Paolo Libertad. Licensed under the MIT License (see LICENSE).
+
+This skill bundles third-party components under their own licences:
+
+1. Apache ECharts 6.1.0 (assets/echarts.min.js)
+   Copyright 2017-2026 The Apache Software Foundation.
+   Licensed under the Apache License, Version 2.0 (assets/ECharts-LICENSE.txt).
+   This product includes software developed at The Apache Software Foundation
+   (https://www.apache.org/). See assets/ECharts-NOTICE.txt.
+   ECharts includes code derived from d3.js, Copyright 2010-2016 Mike Bostock,
+   BSD 3-Clause (assets/ECharts-LICENSE-d3.txt).
+   The minified file is inlined, unmodified and with its licence banner, into
+   every dashboard HTML that data-dash builds.
+
+2. Inter (assets/inter-var-latin.woff2, Latin subset)
+   Copyright (c) 2016 The Inter Project Authors (https://github.com/rsms/inter).
+   Licensed under the SIL Open Font License 1.1 (assets/Inter-OFL.txt).
+   Embedded in built dashboards as a data URI under the family name "Inter DD".
+
+Example data: examples/usgs-earthquakes/snapshots/usgs-m5.json is a trimmed
+snapshot (M5+ earthquakes, 1 Oct 2024 to 18 Oct 2026) of the USGS Earthquake
+Hazards Program ComCat event service. USGS data is a U.S. Government work in the
+public domain. examples/usage-snapshot contains fake example numbers.

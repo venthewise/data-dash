@@ -1,0 +1,185 @@
+# Worked example: REAL public data, no API key, builds OFFLINE on first run.
+# Source: USGS Earthquake Hazards Program, ComCat FDSN event web service
+#   https://earthquake.usgs.gov/fdsnws/event/1/
+# Licence: U.S. Government work, public domain (USGS copyright policy:
+#   https://www.usgs.gov/information-policies-and-instructions/copyrights-and-credits).
+# Bundled: snapshots/usgs-m5.json, a trimmed snapshot of that feed (M5+ earthquakes,
+#   1 Oct 2024 to 18 Oct 2026 08:00 UTC; columns id, time, mag, depth, place).
+#   data_through = max(event time), so October 2026 shows as incomplete.
+# Live data instead: replace the `usgs:` source below with
+#   usgs:
+#     type: csv
+#     title: USGS ComCat earthquake catalogue (M5+, worldwide, live)
+#     url: https://earthquake.usgs.gov/fdsnws/event/1/query?format=csv&starttime=2024-10-01&minmagnitude=5&eventtype=earthquake&orderby=time-asc
+#     licence: Public domain (U.S. Government work, USGS)
+#   and run `dash.py all spec.yaml` with network (the query works on both).
+dashboard:
+  title: Global M5+ earthquakes
+  subtitle: How many strong earthquakes happened in the last year, is activity up or down, and where is it concentrated?
+  theme: light
+  layout: {sections: tabs}
+  locale: en-GB
+  allow_terms: ["M5+", "M6+"]     # defined terms, not reported numbers
+  footnote: Region is derived from the USGS place string (text after the last comma, light normalisation), so a few names group loosely. Magnitudes are the USGS preferred magnitude; recent events can still be revised.
+
+sources:
+  usgs:
+    type: snapshot
+    path: snapshots/usgs-m5.json
+    title: USGS ComCat earthquake catalogue (M5+, worldwide), bundled snapshot
+    licence: Public domain (U.S. Government work, USGS)
+
+datasets:
+  - id: events
+    title: Earthquakes M5+ (USGS)
+    description: One row per earthquake of magnitude 5.0 or more worldwide, from the USGS ComCat catalogue. Times are UTC.
+    query: |
+      with base as (
+        select id, cast(time as timestamp) as time, mag, depth, place,
+               trim(case when contains(place, ',') then regexp_extract(place, ',\s*([^,]+)$', 1) else place end) as r0
+        from usgs
+        where mag >= 5        -- the feed URL already limits to eventtype=earthquake
+      )
+      select
+        id,
+        time,
+        round(mag, 1) as mag,
+        round(depth, 1) as depth_km,
+        case when mag >= 7 then '7.0+' when mag >= 6 then '6.0–6.9' else '5.0–5.9' end as mag_band,
+        replace(
+          regexp_replace(regexp_replace(regexp_replace(regexp_replace(r0,
+            '\s+(region|[Ee]arthquake)$', ''),
+            '^(.* of the |.* of )', ''),
+            '^[0-9]{4}\s+', ''),
+            '^(northern|southern|central|eastern|western|southeast|southwest|northeast|northwest|east|west|north|south)\s+', ''),
+          'Fiji Islands', 'Fiji') as region,
+        place
+      from base
+      order by time
+    date_column: time
+    data_through: {column: time}       # newest event in the pull, never today's date
+    data_from: "2024-10-01"            # = starttime in the source URL (coverage start, not first event)
+
+filters:
+  - id: date
+    type: date_range
+    label: Event date (UTC)
+    presets: [{label: All}, {label: Last 12 months, months: 12}, {label: Last 90 days, days: 90}]
+  - id: band
+    type: category
+    field: mag_band
+    label: Magnitude
+    values: ["5.0–5.9", "6.0–6.9", "7.0+"]
+
+sections:
+  - title: Overview
+    widgets:
+      - type: kpi
+        title: M5+ earthquakes
+        dataset: events
+        value: {agg: count}
+        units: earthquakes
+        window: {months: 12}
+        delta: pct
+        good: neutral
+      - type: kpi
+        title: M6+ earthquakes
+        dataset: events
+        value: {agg: count}
+        where: [{field: mag, op: ">=", value: 6}]
+        units: earthquakes
+        window: {months: 12}
+        delta: pct
+        good: neutral
+      - type: kpi
+        title: Strongest earthquake
+        dataset: events
+        value: {field: mag, agg: max}
+        detail_field: place
+        format: {type: number, decimals: 1}
+        units: magnitude
+        window: {months: 12}
+        delta: abs
+        good: neutral
+      - type: kpi
+        title: Median depth
+        dataset: events
+        value: {field: depth_km, agg: median}
+        format: {type: number, decimals: 0}
+        units: km
+        window: {months: 12}
+        delta: abs
+        good: neutral
+      - type: stacked_bar
+        title: Earthquakes per month
+        subtitle: By magnitude band
+        dataset: events
+        x: time
+        grain: month
+        y: {agg: count}
+        series: mag_band
+        series_order: ["5.0–5.9", "6.0–6.9", "7.0+"]
+        colors: ["#6F8FDB", "#2251C9", "#0E2A73"]
+        units: earthquakes
+        span: 8
+      - type: bar
+        orientation: horizontal
+        title: Most active regions
+        subtitle: Earthquake count
+        dataset: events
+        x: region
+        y: {agg: count}
+        units: earthquakes
+        limit: 10
+        x_plural: regions
+        span: 4
+      - type: table
+        title: Strongest earthquakes
+        subtitle: Click a column to sort
+        dataset: events
+        sort: {field: mag, dir: desc}
+        limit: 12
+        columns:
+          - {field: time, label: Date (UTC), format: {type: date}}
+          - {field: mag, label: Magnitude, unitless: true, format: {type: number, decimals: 1}}
+          - {field: depth_km, label: Depth, units: km, format: {type: number, decimals: 0}, hide_mobile: true}
+          - {field: place, label: Location, wrap: true}
+          - {field: mag_band, label: Band, hide_mobile: true}
+          - {field: id, label: USGS event, hide_mobile: true}
+  - title: Patterns
+    widgets:
+      - type: line
+        title: Strongest earthquake each month
+        dataset: events
+        x: time
+        grain: month
+        y: {field: mag, agg: max, label: Strongest}
+        format: {type: number, decimals: 1}
+        units: magnitude
+        y_scale: true
+        span: 6
+      - type: scatter
+        title: Depth against magnitude
+        subtitle: Each dot is one earthquake; depth increases downward
+        dataset: events
+        x: mag
+        y: depth_km
+        x_label: Magnitude
+        y_label: Depth
+        x_format: {type: number, decimals: 1}
+        x_units: magnitude
+        format: {type: number, decimals: 0}
+        units: km
+        y_inverse: true
+        label_field: place
+        span: 6
+      - type: heatmap
+        title: Monthly activity in the most active regions
+        dataset: events
+        x: time
+        grain: month
+        y: region
+        y_limit: 8
+        value: {agg: count}
+        units: earthquakes
+        span: 12

@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="{{LANG}}" data-theme="{{THEME}}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="generator" content="data-dash {{VERSION}}">
+<title>{{TITLE}}</title>
+<style>
+{{FONT_FACE}}
+:root{
+{{THEME_VARS}}
+}
+{{CSS}}
+</style>
+</head>
+<body>
+<div id="app" class="page">
+  <header class="top">
+    <div class="top-text">
+      <h1 id="dash-title"></h1>
+      <p id="dash-subtitle" class="sub"></p>
+    </div>
+    <p id="dash-fresh" class="fresh"></p>
+  </header>
+  <div id="filters" class="filters" role="region" aria-label="Filters"></div>
+  <nav id="tabs" class="tabs" role="tablist" hidden></nav>
+  <main id="sections"></main>
+  <footer id="foot" class="foot"></footer>
+</div>
+<div id="drawer-backdrop" class="backdrop" hidden></div>
+<aside id="drawer" class="drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title" hidden>
+  <div class="drawer-head">
+    <div><p class="overline">Source</p><h2 id="drawer-title"></h2></div>
+    <button id="drawer-close" class="icon-btn" aria-label="Close source panel">&#x2715;</button>
+  </div>
+  <div id="drawer-body" class="drawer-body"></div>
+</aside>
+<script type="application/json" id="dash-data">{{DATA}}</script>
+<script id="echarts-lib">
+/*! Apache ECharts {{ECHARTS_VERSION}} | Apache License 2.0 | https://echarts.apache.org */
+{{ECHARTS}}
+</script>
+<script id="dash-app">
+/*<data-dash-app>*/
+{{APP}}
+/*</data-dash-app>*/
+</script>
+</body>
+</html>

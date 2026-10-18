@@ -1,0 +1,74 @@
+# Worked example: the connector SNAPSHOT pattern, with FAKE numbers.
+# snapshots/usage.json stands in for what an agent would write after pulling a usage
+# connector (pulled_at, pulled_from, query, rows exactly as returned). Every number in it
+# is EXAMPLE DATA (seeded, synthetic): not anyone's real usage, models or costs.
+# Builds fully offline: `dash.py all spec.yaml` needs no network.
+dashboard:
+  title: AI agent usage (EXAMPLE DATA)
+  subtitle: EXAMPLE DATA, fake numbers. Is usage growing, which agents and models drive it, and what does it cost?
+  theme: light
+  layout: {sections: tabs}
+  locale: en-GB
+  display_tz: Europe/London      # header/footer/drawer times shown in this zone, labelled
+  footnote: EXAMPLE DATA. Fake, seeded numbers shaped like a usage-connector pull; prices are invented. Days are UTC calendar days.
+
+sources:
+  usage:
+    type: snapshot
+    path: snapshots/usage.json
+    title: Usage connector pull (EXAMPLE DATA, fake)
+    licence: example data, not real
+
+datasets:
+  - id: usage
+    title: Daily usage (EXAMPLE DATA)
+    description: One row per UTC day, product, agent and model. Fake example numbers from snapshots/usage.json.
+    query: |
+      select cast(date as date) as day, product, agent, model,
+             requests, input_tokens, output_tokens,
+             input_tokens + output_tokens as total_tokens,
+             cost_usd
+      from usage
+    date_column: day
+    data_through: {column: day}     # last day in the pull, never today's date
+
+filters:
+  - id: date
+    type: date_range
+    label: Day (UTC)
+    presets: [{label: All}, {label: Last 30 days, days: 30}, {label: Last 7 days, days: 7}]
+  - id: product
+    type: category
+    field: product
+    label: Product
+  - id: model
+    type: category
+    field: model
+    label: Model
+
+sections:
+  - title: Overview
+    widgets:
+      - {type: kpi, title: Tokens, dataset: usage, value: {field: total_tokens, agg: sum}, format: {type: number, compact: true}, units: tokens, window: {days: 30}, delta: pct, good: neutral}
+      - {type: kpi, title: Requests, dataset: usage, value: {field: requests, agg: sum}, units: requests, window: {days: 30}, delta: pct, good: neutral}
+      - {type: kpi, title: Cost, dataset: usage, value: {field: cost_usd, agg: sum}, format: {type: currency, currency: USD, decimals: 2}, window: {days: 30}, delta: pct, good: down}
+      - {type: kpi, title: Busiest agent-model day, dataset: usage, value: {field: requests, agg: max}, detail_field: agent, units: requests, window: {days: 30}, delta: none}
+      - {type: stacked_bar, title: Tokens per week, subtitle: By product, dataset: usage, x: day, grain: week, y: {field: total_tokens, agg: sum}, series: product, format: {type: number, compact: true}, units: tokens, span: 8}
+      - {type: bar, orientation: horizontal, title: Cost by model, dataset: usage, x: model, y: {field: cost_usd, agg: sum}, format: {type: currency, currency: USD}, x_plural: models, span: 4}
+  - title: Agents
+    widgets:
+      - {type: line, title: Requests per day, subtitle: By agent, dataset: usage, x: day, grain: day, y: {field: requests, agg: sum}, series: agent, units: requests, span: 12}
+      - {type: heatmap, title: Requests by agent and week, dataset: usage, x: day, grain: week, y: agent, value: {field: requests, agg: sum}, units: requests, span: 12}
+      - type: table
+        title: Most expensive agent-model days
+        dataset: usage
+        sort: {field: cost_usd, dir: desc}
+        limit: 12
+        columns:
+          - {field: day, label: Day (UTC), format: {type: date}}
+          - {field: product, label: Product}
+          - {field: agent, label: Agent}
+          - {field: model, label: Model}
+          - {field: requests, label: Requests, units: requests}
+          - {field: total_tokens, label: Tokens, units: tokens, format: {type: number, compact: true}}
+          - {field: cost_usd, label: Cost, format: {type: currency, currency: USD, decimals: 2}}
